@@ -1444,6 +1444,8 @@ class Database:
         c.execute("INSERT INTO Sites (name,code) VALUES ('Carbon', 'CA')")
         c.execute("INSERT INTO Sites (name,code) VALUES ('PKR', 'PK')")
         c.execute("INSERT INTO Sites (name,code) VALUES ('iPoker', 'IP')")
+        c.execute("INSERT INTO Sites (name,code) VALUES ('Winamax', 'WM')")
+
     #end def fillDefaultData
 
     def rebuild_indexes(self, start=None):
