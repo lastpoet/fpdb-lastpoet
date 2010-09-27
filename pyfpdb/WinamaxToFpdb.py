@@ -205,15 +205,10 @@ class Winamax(HandHistoryConverter):
         #self.log.debug("readHandInfo: %s" % info)
         for key in info:
             if key == 'DATETIME':
-                #'Wed Aug 18 19:45:30 GMT+0100 2010
-                # %a   %b %d %H:%M:%S     %z   %Y
-                #hand.startTime = time.strptime(m.group('DATETIME'), "%a %b %d %H:%M:%S GMT%z %Y")
-                # Stupid library doesn't seem to support %z (http://docs.python.org/library/time.html?highlight=strptime#time.strptime)
-                # So we need to re-interpret te string to be useful
                 a = self.re_DateTime.search(info[key])
                 if a:
                     datetimestr = "%s/%s/%s %s:%s:%s" % (a.group('Y'),a.group('M'), a.group('D'), a.group('H'),a.group('MIN'),a.group('S'))
-                    tzoffset = str(-time.timezone/3600)
+                    tzoffset = "0"
                 else:
                     datetimestr = "2010/Jan/01 01:01:01"
                     self.log.error(_("readHandInfo: DATETIME not matched: '%s'" % info[key]))
