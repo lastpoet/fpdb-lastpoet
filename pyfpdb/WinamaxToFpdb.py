@@ -58,7 +58,7 @@ class Winamax(HandHistoryConverter):
     siteName = "Winamax"
     filetype = "text"
     codepage = ("utf8", "cp1252")
-    siteId   = 5 # Needs to match id entry in Sites database
+    siteId   = 14 # Needs to match id entry in Sites database
 
     mixes = { } # Legal mixed games
     sym = {'USD': "\$", 'CAD': "\$", 'T$': "", "EUR": "\xe2\x82\xac", "GBP": "\xa3"}         # ADD Euro, Sterling, etc HERE
@@ -89,8 +89,10 @@ class Winamax(HandHistoryConverter):
 
 
 # Winamax Poker - CashGame - HandId: #279823-223-1285031451 - Holdem no limit (0.02€/0.05€) - 2010/09/21 03:10:51 UTC
+# Table: 'Charenton-le-Pont' 9-max (real money) Seat #5 is the button
+
     re_HandInfo = re.compile(u"""
-            \s*Winamax\sPoker\s-\sCashGame\s-\sHandId:\s\#(?P<HID>[-A-Z\d]+).*\s
+            \s*Winamax\sPoker\s-\sCashGame\s-\sHandId:\s\#(?P<HID1>\d+)-(?P<HID2>\d+)-(?P<HID3>\d+).*\s
             (?P<GAME>Holdem|Omaha)\s
             (?P<LIMIT>no\slimit|pot\slimit)\s
             \(
@@ -98,6 +100,7 @@ class Winamax(HandHistoryConverter):
             ((%(LS)s)?(?P<BB>[.0-9]+)(%(LS)s)?)
             \)\s-\s
             (?P<DATETIME>.*)
+            Table:\s\'(?P<TABLE>[^']+)\'\s(?P<MAXPLAYER>\d+)\-max
             """ % substitutions, re.MULTILINE|re.DOTALL|re.VERBOSE)
 
     re_TailSplitHands = re.compile(r'\n\s*\n')
@@ -113,10 +116,9 @@ class Winamax(HandHistoryConverter):
             UTC
             """, re.MULTILINE|re.VERBOSE)
 
-# Seat 1: floflo...76 (5€)
-# Seat 2: francksp76 (6.33€)
-# Seat 3: Tonton73 (4.80€)
-# Seat 4: chris67poker (4.60€)
+# Seat 1: some_player (5€)
+# Seat 2: some_other_player21 (6.33€)
+
     re_PlayerInfo = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s\((%(LS)s)?(?P<CASH>[.0-9]+)(%(LS)s)?\)' % substitutions)
 
     def compilePlayerRegexs(self, hand):
@@ -131,29 +133,23 @@ class Winamax(HandHistoryConverter):
             #helander2222 posts blind ($0.25), lopllopl posts blind ($0.50).
             player_re = "(?P<PNAME>" + "|".join(map(re.escape, players)) + ")"
             subst = {'PLYR': player_re, 'CUR': self.sym[hand.gametype['currency']]}
-            self.re_PostSB    = re.compile('(?P<PNAME>.*) posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
-            self.re_PostBB    = re.compile('(?P<PNAME>.*) posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
+            self.re_PostSB    = re.compile('(?P<PNAME>\S*) posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
+            self.re_DenySB    = re.compile('(?P<PNAME>\S*) deny SB' % subst, re.MULTILINE)
+
+            self.re_PostBB    = re.compile('(?P<PNAME>\S*) posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
             self.re_Antes     = re.compile(r"^%(PLYR)s: posts the ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)(%(CUR)s)?" % subst, re.MULTILINE)
             self.re_BringIn   = re.compile(r"^%(PLYR)s: brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+(%(CUR)s)?)" % subst, re.MULTILINE)
-            self.re_PostBoth  = re.compile('(?P<PNAME>.*): posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)(%(CUR)s)?\)' % subst)
-            self.re_PostDead  = re.compile('(?P<PNAME>.*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst, re.MULTILINE)
+            self.re_PostBoth  = re.compile('(?P<PNAME>\S*): posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)(%(CUR)s)?\)' % subst)
+            self.re_PostDead  = re.compile('(?P<PNAME>\S*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst, re.MULTILINE)
             self.re_HeroCards = re.compile('Dealt\sto\s%(PLYR)s\s\[(?P<CARDS>.*)\]' % subst)
 
-            #lopllopl checks, Eurolll checks, .Lucchess checks.
-            #chumley. calls $0.25
             self.re_Action = re.compile('(, )?(?P<PNAME>.*?)(?P<ATYPE> bets| checks| raises| calls| folds)( (%(CUR)s)?(?P<BET>[\d\.]+)(%(CUR)s)?)?( and is all-in)?' % subst)
-            #self.re_Board = re.compile(r"\[board cards (?P<CARDS>.+) \]")
 
-            #Uchilka shows [ KC,JD ]
+
             self.re_ShowdownAction = re.compile('(?P<PNAME>.*) shows \[(?P<CARDS>.+)\]')
 
-            #Main pot: $3.57 won by mleo17 ($3.40)
-            #Side pot 1: $3.26 won by maac_5 ($3.10)
-            #Main pot: $2.87 won by maac_5 ($1.37), sagi34 ($1.36)
-#            self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?\sfrom\spot' % subst)
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
-            #Seat 5: mleo17 ($3.40), net: +$2.57, [Jd, Qd] (TWO_PAIR QUEEN, JACK)
-            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>.*) showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
+            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>\S*)\s*((\(small blind|big blind|button)\))?\s*showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
             self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
 
     def readSupportedGames(self):
@@ -225,11 +221,9 @@ class Winamax(HandHistoryConverter):
                 # TODO: Manually adjust time against OFFSET
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S") # also timezone at end, e.g. " ET"
 #                hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, tzoffset, "UTC")
-            if key == 'HID':
-                hand.handid = info[key]
+            if key == 'HID1':
+                hand.handid = "1%.4d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
                 # Need to remove non-alphanumerics for MySQL
-                hand.handid = hand.handid.replace('R','')
-                hand.handid = hand.handid.replace('-','')
             if key == 'TABLE':
                 hand.tablename = info[key]
 
@@ -247,43 +241,43 @@ class Winamax(HandHistoryConverter):
 
     def markStreets(self, hand):
 # *** ANTE/BLINDS ***
-# francksp76 posts small blind 0.02€
-# Tonton73 posts big blind 0.05€
-# Dealt to johnny_nd [5d Kh 9c Tc]
+# Player1 posts small blind 0.02€
+# Player2 posts big blind 0.05€
+# Dealt to Player6 [5d Kh 9c Tc]
 # *** PRE-FLOP ***
-# chris67poker folds
-# luckyluck21_ calls 0.05€
-# arawak folds
-# johnny_nd calls 0.05€
-# KILLAROUNDER calls 0.05€
-# floflo...76 folds
-# francksp76 calls 0.03€
-# Tonton73 checks
+# Player3 folds
+# Player4 calls 0.05€
+# Player5 folds
+# Player6 calls 0.05€
+# Player8 calls 0.05€
+# Player9 folds
+# Player1 calls 0.03€
+# Player2 checks
 # *** FLOP *** [5h 8d 3h]
-# francksp76 checks
-# Tonton73 checks
-# luckyluck21_ checks
-# johnny_nd checks
-# KILLAROUNDER checks
+# Player1 checks
+# Player2 checks
+# Player7 checks
+# Player6 checks
+# Player8 checks
 # *** TURN *** [5h 8d 3h][7h]
-# francksp76 checks
-# Tonton73 checks
-# luckyluck21_ checks
-# johnny_nd checks
-# KILLAROUNDER checks
+# Player1 checks
+# Player2 checks
+# Player7 checks
+# Player6 checks
+# Player8 checks
 # *** RIVER *** [5h 8d 3h 7h][2d]
-# francksp76 checks
-# Tonton73 checks
-# luckyluck21_ checks
-# johnny_nd bets 0.25€
-# KILLAROUNDER folds
-# francksp76 folds
-# Tonton73 folds
-# luckyluck21_ calls 0.25€
+# Player1 checks
+# Player2 checks
+# Player7 checks
+# Player6 bets 0.25€
+# Player8 folds
+# Player1 folds
+# Player2 folds
+# Player7 calls 0.25€
 # *** SHOW DOWN ***
-# johnny_nd shows [5d Kh 9c Tc] (One pair : 5)
-# luckyluck21_ shows [6h Js 9s Td] (Straight 9 high)
-# luckyluck21_ collected 0.71€ from pot
+# Player6 shows [5d Kh 9c Tc] (One pair : 5)
+# Player7 shows [6h Js 9s Td] (Straight 9 high)
+# Player7 collected 0.71€ from pot
 # *** SUMMARY ***
 # Total pot 0.71€ | Rake 0.04€
 
@@ -294,7 +288,6 @@ class Winamax(HandHistoryConverter):
                        r"( *\*\*\* RIVER \*\*\* \[\w\w \w\w \w\w \w\w\](?P<RIVER>\[\w\w\].+(?=\*\*\* SUMMARY \*\*\*)))?", hand.handText, re.DOTALL)
         try:
             hand.addStreets(m)
-            print "add street"
         except:
             print ("Failed to add streets. handtext=%s")
 
@@ -323,11 +316,12 @@ class Winamax(HandHistoryConverter):
             hand.setCommunityCards(street, m.group('CARDS').split(' '))
 
     def readBlinds(self, hand):
-        try:
-            m = self.re_PostSB.search(hand.handText)
-            hand.addBlind(m.group('PNAME'), 'small blind', m.group('SB'))
-        except exceptions.AttributeError: # no small blind
-            self.log.exception( _("readBlinds in noSB exception - no SB created")+str(sys.exc_info()) )
+        if not self.re_DenySB.search(hand.handText):
+            try:
+                m = self.re_PostSB.search(hand.handText)
+                hand.addBlind(m.group('PNAME'), 'small blind', m.group('SB'))
+            except exceptions.AttributeError: # no small blind
+                self.log.warning( _("readBlinds in noSB exception - no SB created")+str(sys.exc_info()) )
             #hand.addBlind(None, None, None)
         for a in self.re_PostBB.finditer(hand.handText):
             hand.addBlind(a.group('PNAME'), 'big blind', a.group('BB'))
@@ -393,12 +387,12 @@ class Winamax(HandHistoryConverter):
             cards = cards.split(' ')
             hand.addShownCards(cards, shows.group('PNAME'))
 
-    @Trace
+#    @Trace
     def readCollectPot(self,hand):
         for m in self.re_CollectPot.finditer(hand.handText):
             hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
 
-    @Trace
+#    @Trace
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
             self.log.debug("Read shown cards: %s"%m.group(0))
