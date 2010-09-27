@@ -133,23 +133,23 @@ class Winamax(HandHistoryConverter):
             #helander2222 posts blind ($0.25), lopllopl posts blind ($0.50).
             player_re = "(?P<PNAME>" + "|".join(map(re.escape, players)) + ")"
             subst = {'PLYR': player_re, 'CUR': self.sym[hand.gametype['currency']]}
-            self.re_PostSB    = re.compile('(?P<PNAME>\S*) posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
-            self.re_DenySB    = re.compile('(?P<PNAME>\S*) deny SB' % subst, re.MULTILINE)
+            self.re_PostSB    = re.compile('(?P<PNAME>.*) posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst)
+            self.re_DenySB    = re.compile('(?P<PNAME>.*) deny SB' % subst)
 
-            self.re_PostBB    = re.compile('(?P<PNAME>\S*) posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
-            self.re_Antes     = re.compile(r"^%(PLYR)s: posts the ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)(%(CUR)s)?" % subst, re.MULTILINE)
-            self.re_BringIn   = re.compile(r"^%(PLYR)s: brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+(%(CUR)s)?)" % subst, re.MULTILINE)
-            self.re_PostBoth  = re.compile('(?P<PNAME>\S*): posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)(%(CUR)s)?\)' % subst)
-            self.re_PostDead  = re.compile('(?P<PNAME>\S*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst, re.MULTILINE)
+            self.re_PostBB    = re.compile('(?P<PNAME>.*) posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst)
+            self.re_Antes     = re.compile(r"^%(PLYR)s: posts the ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)(%(CUR)s)?" % subst)
+            self.re_BringIn   = re.compile(r"^%(PLYR)s: brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+(%(CUR)s)?)" % subst)
+            self.re_PostBoth  = re.compile('(?P<PNAME>.*): posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)(%(CUR)s)?\)' % subst)
+            self.re_PostDead  = re.compile('(?P<PNAME>.*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst)
             self.re_HeroCards = re.compile('Dealt\sto\s%(PLYR)s\s\[(?P<CARDS>.*)\]' % subst)
 
             self.re_Action = re.compile('(, )?(?P<PNAME>.*?)(?P<ATYPE> bets| checks| raises| calls| folds)( (%(CUR)s)?(?P<BET>[\d\.]+)(%(CUR)s)?)?( and is all-in)?' % subst)
 
 
-            self.re_ShowdownAction = re.compile('(?P<PNAME>.*) shows \[(?P<CARDS>.+)\]')
+            self.re_ShowdownAction = re.compile('(?P<PNAME>[^\(\)\n]*) (\((small blind|big blind|button)\) )?shows \[(?P<CARDS>.+)\]')
 
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
-            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>\S*)\s*((\(small blind|big blind|button)\))?\s*showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
+            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>.*)\s*((\(small blind|big blind|button)\))?\s*showed \[(?P<CARDS>.*)\].*" % subst)
             self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
 
     def readSupportedGames(self):
@@ -208,14 +208,14 @@ class Winamax(HandHistoryConverter):
                 a = self.re_DateTime.search(info[key])
                 if a:
                     datetimestr = "%s/%s/%s %s:%s:%s" % (a.group('Y'),a.group('M'), a.group('D'), a.group('H'),a.group('MIN'),a.group('S'))
-                    tzoffset = "0"
+                    tzoffset = str(-time.timezone/3600)
                 else:
                     datetimestr = "2010/Jan/01 01:01:01"
                     self.log.error(_("readHandInfo: DATETIME not matched: '%s'" % info[key]))
                     print "DEBUG: readHandInfo: DATETIME not matched: '%s'" % info[key]
                 # TODO: Manually adjust time against OFFSET
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S") # also timezone at end, e.g. " ET"
-#                hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, tzoffset, "UTC")
+                hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, "CET", "UTC")
             if key == 'HID1':
                 hand.handid = "1%.4d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
                 # Need to remove non-alphanumerics for MySQL

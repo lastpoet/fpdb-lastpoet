@@ -221,7 +221,7 @@ dealt   whether they were seen in a 'dealt to' line
         try:
             self.checkPlayerExists(player)
         except FpdbParseError, e:
-            print _("[ERROR] Tried to add holecards for unknown player: %s") % (player,)
+            print _("[ERROR] Tried to add holecards for unknown player: '%s'") % (player,)
             return
 
         if dealt:  self.dealt.add(player)

@@ -594,11 +594,11 @@ or None if we fail to get the info """
            Tries to convert the time parameter (with no timezone) from the givenTimezone to
            the wantedTimeZone (currently only allows "UTC")
         """
-        self.log.debug( _("raw time:")+str(time) + _(" given TZ:")+str(givenTimezone) )
+#        log.debug( _("raw time:")+str(time) + _(" given TZ:")+str(givenTimezone) )
         if wantedTimezone=="UTC":
             wantedTimezone = pytz.utc
         else:
-            raise Error #TODO raise appropriate error
+            raise Exception("Invalid timezone") #TODO raise appropriate error
 
         givenTZ = None
         if HandHistoryConverter.re_tzOffset.match(givenTimezone):
@@ -659,15 +659,15 @@ or None if we fail to get the info """
         elif givenTimezone == 'NZT': # New Zealand Time
             pass
         else:
-            raise Error #TODO raise appropriate error
+            raise Exception("Invalid timezone") #TODO raise appropriate error
 
         if givenTZ is None:
-            raise Error #TODO raise appropriate error
+            raise Exception("Invalid timezone")#TODO raise appropriate error
                         # (or just return time unchanged?)
 
         localisedTime = givenTZ.localize(time)
         utcTime = localisedTime.astimezone(wantedTimezone) + datetime.timedelta(seconds=-3600*(offset/100)-60*(offset%100))
-        self.log.debug( _("utcTime:")+str(utcTime) )
+#        self.log.debug( _("utcTime:")+str(utcTime) )
         return utcTime
     #end @staticmethod def changeTimezone
 
