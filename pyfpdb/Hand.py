@@ -15,6 +15,9 @@
 #along with this program. If not, see <http://www.gnu.org/licenses/>.
 #In the "official" distribution you can find the license in agpl-3.0.txt.
 
+import L10n
+_ = L10n.get_translation()
+
 # TODO: get writehand() encoding correct
 
 import re
@@ -27,18 +30,6 @@ import operator
 import time,datetime
 from copy import deepcopy
 import pprint
-
-import locale
-lang=locale.getdefaultlocale()[0][0:2]
-if lang=="en":
-    def _(string): return string
-else:
-    import gettext
-    try:
-        trans = gettext.translation("fpdb", localedir="locale", languages=[lang])
-        trans.install()
-    except IOError:
-        def _(string): return string
 
 import logging
 # logging has been set up in fpdb.py or HUD_main.py, use their settings:
@@ -56,13 +47,16 @@ class Hand(object):
 #    Class Variables
     UPS = {'a':'A', 't':'T', 'j':'J', 'q':'Q', 'k':'K', 'S':'s', 'C':'c', 'H':'h', 'D':'d'}
     LCS = {'H':'h', 'D':'d', 'C':'c', 'S':'s'}
-    SYMBOL = {'USD': '$', 'EUR': u'$', 'T$': '', 'play': ''}
+    SYMBOL = {'USD': '$', 'EUR': u'$', 'GBP': '$', 'T$': '', 'play': ''}
     MS = {'horse' : 'HORSE', '8game' : '8-Game', 'hose'  : 'HOSE', 'ha': 'HA'}
+    ACTION = {'ante': 1, 'small blind': 2, 'secondsb': 3, 'big blind': 4, 'both': 5, 'calls': 6, 'raises': 7,
+              'bets': 8, 'stands pat': 9, 'folds': 10, 'checks': 11, 'discards': 12, 'bringin': 13, 'completes': 14}
 
 
     def __init__(self, config, sitename, gametype, handText, builtFrom = "HHC"):
         #log.debug( _("Hand.init(): handText is ") + str(handText) )
         self.config = config
+        self.saveActions = self.config.get_import_parameters().get('saveActions')
         #log = Configuration.get_logger("logging.conf", "db", log_dir=self.config.dir_log)
         self.sitename = sitename
         self.siteId = self.config.get_site_id(sitename)
@@ -74,6 +68,7 @@ class Hand(object):
         self.cancelled = False
         self.dbid_hands = 0
         self.dbid_pids = None
+        self.dbid_hpid = None
         self.dbid_gt = 0
         self.tablename = ""
         self.hero = ""
@@ -270,10 +265,11 @@ db: a connected Database object"""
             hh['seats'] = len(self.dbid_pids)
 
             self.dbid_hands = db.storeHand(hh)
-            db.storeHandsPlayers(self.dbid_hands, self.dbid_pids, self.stats.getHandsPlayers(), printdata = printtest)
-            # TODO HandsActions - all actions for all players for all streets - self.actions
-            # HudCache data can be generated from HandsActions (HandsPlayers?)
-            #db.storeHandsActions(self.dbid_hands, self.dbid_pids, self.stats.getHandsActions(), printdata = printtest)
+            self.dbid_hpid = db.storeHandsPlayers(self.dbid_hands, self.dbid_pids, 
+                                                  self.stats.getHandsPlayers(), printdata = printtest)
+            if self.saveActions:
+                db.storeHandsActions(self.dbid_hands, self.dbid_pids, self.dbid_hpid,
+                                     self.stats.getHandsActions(), printdata = printtest)
         else:
             log.info(_("Hand.insert(): hid #: %s is a duplicate") % hh['siteHandNo'])
             self.is_duplicate = True  # i.e. don't update hudcache
@@ -358,7 +354,7 @@ For sites (currently only Carbon Poker) which record "all in" as a special actio
             ante = re.sub(u',', u'', ante) #some sites have commas
             self.bets['BLINDSANTES'][player].append(Decimal(ante))
             self.stacks[player] -= Decimal(ante)
-            act = (player, 'posts', "ante", ante, self.stacks[player]==0)
+            act = (player, 'ante', Decimal(ante), self.stacks[player]==0)
             self.actions['BLINDSANTES'].append(act)
 #            self.pot.addMoney(player, Decimal(ante))
             self.pot.addCommonMoney(player, Decimal(ante))
@@ -377,7 +373,7 @@ For sites (currently only Carbon Poker) which record "all in" as a special actio
         if player is not None:
             amount = re.sub(u',', u'', amount) #some sites have commas
             self.stacks[player] -= Decimal(amount)
-            act = (player, 'posts', blindtype, amount, self.stacks[player]==0)
+            act = (player, blindtype, Decimal(amount), self.stacks[player]==0)
             self.actions['BLINDSANTES'].append(act)
 
             if blindtype == 'both':
@@ -410,7 +406,7 @@ For sites (currently only Carbon Poker) which record "all in" as a special actio
             #self.lastBet[street] = Decimal(amount)
             self.stacks[player] -= Decimal(amount)
             #print "DEBUG %s calls %s, stack %s" % (player, amount, self.stacks[player])
-            act = (player, 'calls', amount, self.stacks[player]==0)
+            act = (player, 'calls', Decimal(amount), self.stacks[player]==0)
             self.actions[street].append(act)
             self.pot.addMoney(player, Decimal(amount))
 
@@ -471,11 +467,11 @@ Add a raise on [street] by [player] to [amountTo]
         Rb = Rt - C - Bc
         self._addRaise(street, player, C, Rb, Rt)
 
-    def _addRaise(self, street, player, C, Rb, Rt):
+    def _addRaise(self, street, player, C, Rb, Rt, action = 'raises'):
         log.debug(_("%s %s raise %s") %(street, player, Rt))
         self.bets[street][player].append(C + Rb)
         self.stacks[player] -= (C + Rb)
-        act = (player, 'raises', Rb, Rt, C, self.stacks[player]==0)
+        act = (player, action, Rb, Rt, C, self.stacks[player]==0)
         self.actions[street].append(act)
         self.lastBet[street] = Rt # TODO check this is correct
         self.pot.addMoney(player, C+Rb)
@@ -489,7 +485,7 @@ Add a raise on [street] by [player] to [amountTo]
         self.bets[street][player].append(Decimal(amount))
         self.stacks[player] -= Decimal(amount)
         #print "DEBUG %s bets %s, stack %s" % (player, amount, self.stacks[player])
-        act = (player, 'bets', amount, self.stacks[player]==0)
+        act = (player, 'bets', Decimal(amount), self.stacks[player]==0)
         self.actions[street].append(act)
         self.lastBet[street] = Decimal(amount)
         self.pot.addMoney(player, Decimal(amount))
@@ -1028,7 +1024,7 @@ class DrawHand(Hand):
             self.bets['DEAL'][player].append(Decimal(amount))
             self.stacks[player] -= Decimal(amount)
             #print "DEBUG %s posts, stack %s" % (player, self.stacks[player])
-            act = (player, 'posts', blindtype, amount, self.stacks[player]==0)
+            act = (player, blindtype, Decimal(amount), self.stacks[player]==0)
             self.actions['BLINDSANTES'].append(act)
             self.pot.addMoney(player, Decimal(amount))
             if blindtype == 'big blind':
@@ -1058,10 +1054,10 @@ class DrawHand(Hand):
     def addDiscard(self, street, player, num, cards):
         self.checkPlayerExists(player)
         if cards:
-            act = (player, 'discards', num, cards)
+            act = (player, 'discards', Decimal(num), cards)
             self.discardDrawHoleCards(cards, player, street)
         else:
-            act = (player, 'discards', num)
+            act = (player, 'discards', Decimal(num))
         self.actions[street].append(act)
 
     def holecardsAsSet(self, street, player):
@@ -1254,7 +1250,7 @@ Add a complete on [street] by [player] to [amountTo]
         Rt = Decimal(amountTo)
         C = Bp - Bc
         Rb = Rt - C
-        self._addRaise(street, player, C, Rb, Rt)
+        self._addRaise(street, player, C, Rb, Rt, 'completes')
         #~ self.bets[street][player].append(C + Rb)
         #~ self.stacks[player] -= (C + Rb)
         #~ act = (player, 'raises', Rb, Rt, C, self.stacks[player]==0)
@@ -1267,7 +1263,7 @@ Add a complete on [street] by [player] to [amountTo]
             log.debug(_("Bringin: %s, %s") % (player , bringin))
             self.bets['THIRD'][player].append(Decimal(bringin))
             self.stacks[player] -= Decimal(bringin)
-            act = (player, 'bringin', bringin, self.stacks[player]==0)
+            act = (player, 'bringin', Decimal(bringin), self.stacks[player]==0)
             self.actions['THIRD'].append(act)
             self.lastBet['THIRD'] = Decimal(bringin)
             self.pot.addMoney(player, Decimal(bringin))

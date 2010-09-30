@@ -18,6 +18,10 @@
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ########################################################################
 
+
+import L10n
+_ = L10n.get_translation()
+
 import sys
 import exceptions
 
@@ -28,18 +32,6 @@ import Configuration
 from HandHistoryConverter import *
 from decimal import Decimal
 import time
-import locale
-
-lang=locale.getdefaultlocale()[0][0:2]
-if lang=="en":
-    def _(string): return string
-else:
-    import gettext
-    try:
-        trans = gettext.translation("fpdb", localedir="locale", languages=[lang])
-        trans.install()
-    except IOError:
-        def _(string): return string
 
 # Winamax HH Format
 
@@ -133,23 +125,19 @@ class Winamax(HandHistoryConverter):
             #helander2222 posts blind ($0.25), lopllopl posts blind ($0.50).
             player_re = "(?P<PNAME>" + "|".join(map(re.escape, players)) + ")"
             subst = {'PLYR': player_re, 'CUR': self.sym[hand.gametype['currency']]}
-            self.re_PostSB    = re.compile('(?P<PNAME>.*) posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst)
-            self.re_DenySB    = re.compile('(?P<PNAME>.*) deny SB' % subst)
-
-            self.re_PostBB    = re.compile('(?P<PNAME>.*) posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst)
-            self.re_Antes     = re.compile(r"^%(PLYR)s: posts the ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)(%(CUR)s)?" % subst)
-            self.re_BringIn   = re.compile(r"^%(PLYR)s: brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+(%(CUR)s)?)" % subst)
+            self.re_PostSB    = re.compile('%(PLYR)s posts small blind (%(CUR)s)?(?P<SB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
+            self.re_PostBB    = re.compile('%(PLYR)s posts big blind (%(CUR)s)?(?P<BB>[\.0-9]+)(%(CUR)s)?' % subst, re.MULTILINE)
+            self.re_DenySB    = re.compile('(?P<PNAME>.*) deny SB' % subst, re.MULTILINE)
+            self.re_Antes     = re.compile(r"^%(PLYR)s: posts the ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)(%(CUR)s)?" % subst, re.MULTILINE)
+            self.re_BringIn   = re.compile(r"^%(PLYR)s: brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+(%(CUR)s)?)" % subst, re.MULTILINE)
             self.re_PostBoth  = re.compile('(?P<PNAME>.*): posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)(%(CUR)s)?\)' % subst)
-            self.re_PostDead  = re.compile('(?P<PNAME>.*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst)
+            self.re_PostDead  = re.compile('(?P<PNAME>.*) posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)(%(CUR)s)?\)' % subst, re.MULTILINE)
             self.re_HeroCards = re.compile('Dealt\sto\s%(PLYR)s\s\[(?P<CARDS>.*)\]' % subst)
 
             self.re_Action = re.compile('(, )?(?P<PNAME>.*?)(?P<ATYPE> bets| checks| raises| calls| folds)( (%(CUR)s)?(?P<BET>[\d\.]+)(%(CUR)s)?)?( and is all-in)?' % subst)
-
-
             self.re_ShowdownAction = re.compile('(?P<PNAME>[^\(\)\n]*) (\((small blind|big blind|button)\) )?shows \[(?P<CARDS>.+)\]')
-
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
-            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>.*)\s*((\(small blind|big blind|button)\))?\s*showed \[(?P<CARDS>.*)\].*" % subst)
+            self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
             self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
 
     def readSupportedGames(self):
@@ -168,8 +156,8 @@ class Winamax(HandHistoryConverter):
         m = self.re_HandInfo.search(handText)
         if not m:
             tmp = handText[0:100]
-            self.log.error(_("determineGameType: Unable to recognise gametype from: '%s'") % tmp)
-            self.log.error(_("determineGameType: Raising FpdbParseError"))
+            log.error(_("determineGameType: Unable to recognise gametype from: '%s'") % tmp)
+            log.error(_("determineGameType: Raising FpdbParseError"))
             raise FpdbParseError(_("Unable to recognise gametype from: '%s'") % tmp)
 
         mg = m.groupdict()
@@ -182,8 +170,8 @@ class Winamax(HandHistoryConverter):
                 info['limitType'] = self.limits[mg['LIMIT']]
             else:
                 tmp = handText[0:100]
-                self.log.error(_("determineGameType: limit not found in self.limits(%s). hand: '%s'") % (str(mg),tmp))
-                self.log.error(_("determineGameType: Raising FpdbParseError"))
+                log.error(_("determineGameType: limit not found in self.limits(%s). hand: '%s'") % (str(mg),tmp))
+                log.error(_("determineGameType: Raising FpdbParseError"))
                 raise FpdbParseError(_("limit not found in self.limits(%s). hand: '%s'") % (str(mg),tmp))
         if 'GAME' in mg:
             (info['base'], info['category']) = self.games[mg['GAME']]
@@ -192,7 +180,6 @@ class Winamax(HandHistoryConverter):
         if 'BB' in mg:
             info['bb'] = mg['BB']
 
-        #self.log.debug("determinegametype: returning "+str(info))
         return info
 
     def readHandInfo(self, hand):
@@ -211,7 +198,7 @@ class Winamax(HandHistoryConverter):
                     tzoffset = str(-time.timezone/3600)
                 else:
                     datetimestr = "2010/Jan/01 01:01:01"
-                    self.log.error(_("readHandInfo: DATETIME not matched: '%s'" % info[key]))
+                    log.error(_("readHandInfo: DATETIME not matched: '%s'" % info[key]))
                     print "DEBUG: readHandInfo: DATETIME not matched: '%s'" % info[key]
                 # TODO: Manually adjust time against OFFSET
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S") # also timezone at end, e.g. " ET"
@@ -228,9 +215,10 @@ class Winamax(HandHistoryConverter):
         hand.mixed = None
 
     def readPlayerStacks(self, hand):
-        self.log.debug("readplayerstacks: re is '%s'" % self.re_PlayerInfo)
+        log.info("readplayerstacks: re is '%s'" % self.re_PlayerInfo)
         m = self.re_PlayerInfo.finditer(hand.handText)
         for a in m:
+            print "DEBUG: found '%s' with '%s'" %(a.group('PNAME'), a.group('CASH'))
             hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
 
 
@@ -294,9 +282,9 @@ class Winamax(HandHistoryConverter):
         m = self.re_Button.search(hand.handText)
         if m:
             hand.buttonpos = int(m.group('BUTTON'))
-            self.log.debug('readButton: button on pos %d'%hand.buttonpos)
+            log.debug('readButton: button on pos %d'%hand.buttonpos)
         else:
-            self.log.warning(_('readButton: not found'))
+            log.warning(_('readButton: not found'))
 
 #    def readCommunityCards(self, hand, street):
 #        #print hand.streets.group(street)
@@ -327,7 +315,7 @@ class Winamax(HandHistoryConverter):
             hand.addBlind(a.group('PNAME'), 'small & big blinds', a.group('SBBB'))
 
     def readAntes(self, hand):
-        self.log.debug(_("reading antes"))
+        log.debug(_("reading antes"))
         m = self.re_Antes.finditer(hand.handText)
         for player in m:
             #~ logging.debug("hand.addAnte(%s,%s)" %(player.group('PNAME'), player.group('ANTE')))
@@ -346,18 +334,18 @@ class Winamax(HandHistoryConverter):
             if street in hand.streets.keys():
                 m = self.re_HeroCards.finditer(hand.streets[street])
             if m == []:
-                self.log.debug("No hole cards found for %s"%street)
+                log.debug("No hole cards found for %s"%street)
             for found in m:
                 hand.hero = found.group('PNAME')
                 newcards = found.group('CARDS').split(' ')
+                print "DEBUG: addHoleCards(%s, %s, %s)" %(street, hand.hero, newcards)
                 hand.addHoleCards(street, hand.hero, closed=newcards, shown=False, mucked=False, dealt=True)
-                self.log.debug("Hero cards  %s: %s"%(hand.hero, newcards))
+                log.debug("Hero cards  %s: %s"%(hand.hero, newcards))
 
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
         for action in m:
             acts = action.groupdict()
-            #self.log.debug("readaction: acts: %s" %acts)
             if action.group('ATYPE') == ' raises':
                 hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' calls':
@@ -373,24 +361,24 @@ class Winamax(HandHistoryConverter):
             elif action.group('ATYPE') == ' stands pat':
                 hand.addStandsPat( street, action.group('PNAME'))
             else:
-                self.log.fatal("DEBUG: unimplemented readAction: '%s' '%s'") %(action.group('PNAME'),action.group('ATYPE'),)
+                log.fatal("DEBUG: unimplemented readAction: '%s' '%s'") %(action.group('PNAME'),action.group('ATYPE'),)
 
     def readShowdownActions(self, hand):
         for shows in self.re_ShowdownAction.finditer(hand.handText):
-            self.log.debug("add show actions %s"%shows)
+            log.debug("add show actions %s"%shows)
             cards = shows.group('CARDS')
             cards = cards.split(' ')
+            print "DEBUG: addShownCards(%s, %s)" %(cards, shows.group('PNAME'))
             hand.addShownCards(cards, shows.group('PNAME'))
 
-#    @Trace
     def readCollectPot(self,hand):
         for m in self.re_CollectPot.finditer(hand.handText):
             hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
 
-#    @Trace
+
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
-            self.log.debug("Read shown cards: %s"%m.group(0))
+            log.debug("Read shown cards: %s"%m.group(0))
             cards = m.group('CARDS')
             cards = cards.split(' ') # needs to be a list, not a set--stud needs the order
             (shown, mucked) = (False, False)
