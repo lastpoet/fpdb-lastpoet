@@ -33,6 +33,8 @@ from HandHistoryConverter import *
 from decimal import Decimal
 import time
 
+log = logging.getLogger("WinamaxToDb")
+log.setLevel("logging.WARNING")
 # Winamax HH Format
 
 class Winamax(HandHistoryConverter):
