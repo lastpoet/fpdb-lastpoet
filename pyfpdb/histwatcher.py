@@ -33,14 +33,11 @@ class Watcher(object):
         self.site = site
         if os.path.isfile(self.cached_file):
             f = open(self.cached_file)
-            self.cached = pickle.load(f)
+            self.flist = pickle.load(f)
             f.close()
         else:
-            self.cached = {}
-        if not self.cached.get(site):
-            self.cached[site] = []
+            self.flist = [] # flist [ (file,last_read,byte_read,isNew) ]
 
-        self.flist = self.cached.get(site) # flist [ (file,last_read,byte_read,isNew) ]
 
     def update_flist(self):
         existing_files = glob.glob(os.path.join(self._dir,'*'))
@@ -65,16 +62,21 @@ class Watcher(object):
                 self.flist[i][3] = True
 
     def parse_hist(self):
+        newfiles = 0
+        for f in self.flist:
+            if f[3] == True: # the file is not new
+                newfiles +=1
+        cnt = 0
         for i in range(len(self.flist)):
             f = self.flist[i]
             if f[3] == False: # the file is not new
                 continue
-
+            cnt +=1
             filename = f[0]
             fh = open(filename)
             byte_read = f[2]
             fh.seek(byte_read)
-            print "Parsing recently modified file %s"%filename
+            print "Parsing file %d/%d: %s."%(cnt, newfiles, filename)
             new_lines = fh.read()
 
             tempf = tempfile.NamedTemporaryFile(delete=False)
@@ -90,6 +92,10 @@ class Watcher(object):
             os.unlink(tempf.name)
             self.flist[i] = ([filename,time.time(),fh.tell(),False])
 
+            pkf = open(self.cached_file,'w')
+            pickle.dump(self.flist, pkf)
+            pkf.close()
+
     def run(self):
         """
 
@@ -98,14 +104,9 @@ class Watcher(object):
         """
         cnt = 0
         while [ 1 ]:
+            self.update_flist()
             self.parse_hist()
             time.sleep(0.1)
-            cnt +=1
-            if cnt % 10:
-                self.update_flist()
-                f = open(self.cached_file,'w')
-                pickle.dump(self.cached,f)
-                f.close()
 
 def main():
     import optparse
