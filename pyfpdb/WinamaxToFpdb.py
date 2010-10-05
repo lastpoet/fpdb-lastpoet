@@ -34,7 +34,6 @@ from decimal import Decimal
 import time
 
 log = logging.getLogger("WinamaxToDb")
-log.setLevel("logging.WARNING")
 # Winamax HH Format
 
 class Winamax(HandHistoryConverter):
@@ -364,6 +363,9 @@ class Winamax(HandHistoryConverter):
                 hand.addStandsPat( street, action.group('PNAME'))
             else:
                 log.fatal("DEBUG: unimplemented readAction: '%s' '%s'") %(action.group('PNAME'),action.group('ATYPE'),)
+            log.debug("Processed %s"%acts)
+            log.debug(hand.pot.committed)
+
 
     def readShowdownActions(self, hand):
         for shows in self.re_ShowdownAction.finditer(hand.handText):
@@ -373,10 +375,49 @@ class Winamax(HandHistoryConverter):
             print "DEBUG: addShownCards(%s, %s)" %(cards, shows.group('PNAME'))
             hand.addShownCards(cards, shows.group('PNAME'))
 
-    def readCollectPot(self,hand):
-        for m in self.re_CollectPot.finditer(hand.handText):
-            hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
 
+    def readCollectPot(self,hand):
+        # Winamax has unfortunately thinks that a sidepot is created
+        # when there is uncalled money in the pot - something that can
+        # only happen when a player is all-in
+        # The first side pot mentioned is always the uncalled money, so we can remove it.
+        # If there is only 1 collected line, then add it
+
+        total = sum(hand.pot.committed.values()) + sum(hand.pot.common.values())
+
+        # Return any uncalled bet.
+        committed = sorted([ (v,k) for (k,v) in hand.pot.committed.items()])
+        #print "DEBUG: committed: %s" % committed
+        #ERROR below. lastbet is correct in most cases, but wrong when
+        #             additional money is committed to the pot in cash games
+        #             due to an additional sb being posted. (Speculate that
+        #             posting sb+bb is also potentially wrong)
+        returned = {}
+        lastbet = committed[-1][0] - committed[-2][0]
+        if lastbet > 0: # uncalled
+            returnto = committed[-1][1]
+            #print "DEBUG: returning %f to %s" % (lastbet, returnto)
+            total -= lastbet
+            returned[returnto] = lastbet
+
+        collectees = []
+
+        for m in self.re_CollectPot.finditer(hand.handText):
+            collectees.append([m.group('PNAME'), m.group('POT')])
+        if returned == {}:
+            print "DEBUG: collectees: '%s'" % collectees
+            plyr = collectees[0][0]
+            p    = collectees[0][1]
+            print "DEBUG: addCollectPot(%s, %s)" %(plyr, p)
+            hand.addCollectPot(player=plyr, pot=p)
+        else:
+            print "DEBUG: Winamax should have returned bet"
+            #hand.pot.returned has the player name and the amount.
+            # Should really match that. Currently just removing the
+            # first match found
+            for plyr, p in collectees[1:]:
+                print "DEBUG: addCollectPot(%s, %s)" %(plyr, p)
+                hand.addCollectPot(player=plyr,pot=p)
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
