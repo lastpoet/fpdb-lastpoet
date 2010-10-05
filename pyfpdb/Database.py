@@ -73,7 +73,7 @@ except ImportError:
     use_numpy = False
 
 
-DB_VERSION = 143
+DB_VERSION = 144
 
 
 # Variance created as sqlite has a bunch of undefined aggregate functions.
@@ -1587,7 +1587,7 @@ class Database:
             self.connection.set_isolation_level(1)   # go back to normal isolation level
         self.commit()
         atime = time() - stime
-        print _("Analyze took %.1f seconds") % (atime,)
+        log.info(_("Analyze took %.1f seconds") % (atime,))
     #end def analyzeDB
 
     def vacuumDB(self):
