@@ -43,7 +43,11 @@ class Watcher(object):
         existing_files = glob.glob(os.path.join(self._dir,'*'))
         self.cached_files = [ f[0] for f in self.flist ]
         for f in existing_files:
-            full_path = os.path.join(self._dir, f)
+
+            if os.path.isabs(self._dir):
+                full_path = os.path.join(self._dir, f)
+            else:
+                full_path = os.path.abspath(f)
             if not os.path.isfile(full_path):
                 continue
 
@@ -60,7 +64,6 @@ class Watcher(object):
 
             if mtime > last_read:
                 self.flist[i][3] = True
-
     def parse_hist(self):
         newfiles = 0
         for f in self.flist:
@@ -76,7 +79,7 @@ class Watcher(object):
             fh = open(filename)
             byte_read = f[2]
             fh.seek(byte_read)
-            print "Parsing file %d/%d: %s."%(cnt, newfiles, filename)
+            print "Parsing file %d/%d: %s..."%(cnt, newfiles, filename)
             new_lines = fh.read()
 
             tempf = tempfile.NamedTemporaryFile(delete=False)
@@ -93,8 +96,10 @@ class Watcher(object):
             self.flist[i] = ([filename,time.time(),fh.tell(),False])
 
             pkf = open(self.cached_file,'w')
+            print "Done"
             pickle.dump(self.flist, pkf)
             pkf.close()
+
 
     def run(self):
         """
