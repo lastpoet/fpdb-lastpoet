@@ -265,7 +265,7 @@ db: a connected Database object"""
             hh['seats'] = len(self.dbid_pids)
 
             self.dbid_hands = db.storeHand(hh)
-            self.dbid_hpid = db.storeHandsPlayers(self.dbid_hands, self.dbid_pids, 
+            self.dbid_hpid = db.storeHandsPlayers(self.dbid_hands, self.dbid_pids,
                                                   self.stats.getHandsPlayers(), printdata = printtest)
             if self.saveActions:
                 db.storeHandsActions(self.dbid_hands, self.dbid_pids, self.dbid_hpid,
@@ -540,7 +540,10 @@ Card ranks will be uppercased
 
         # This gives us the total amount put in the pot
         if self.totalpot is None:
-            self.pot.end()
+            return_uncalled_bet = True
+            if self.sitename in ['Winamax','someothersite']:
+                return_uncalled_bet = False
+            self.pot.end(return_uncalled_bet)
             self.totalpot = self.pot.total
 
         # This gives us the amount collected, i.e. after rake
@@ -1484,7 +1487,7 @@ class Pot(object):
             return self.streettotals[street]
         return 0
 
-    def end(self):
+    def end(self, return_uncalled_bet = True):
         self.total = sum(self.committed.values()) + sum(self.common.values())
 
         # Return any uncalled bet.
@@ -1499,7 +1502,8 @@ class Pot(object):
             returnto = committed[-1][1]
             #print "DEBUG: returning %f to %s" % (lastbet, returnto)
             self.total -= lastbet
-            self.committed[returnto] -= lastbet
+            if return_uncalled_bet:
+                self.committed[returnto] -= lastbet
             self.returned[returnto] = lastbet
 
 
