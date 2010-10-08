@@ -75,26 +75,18 @@ onlinehelp = {'Game':'Type of Game',
 class DemoTips(TreeViewTooltips):
 
     def __init__(self, customer_column):
-        # customer_column is an instance of gtk.TreeViewColumn and
-        # is being used in the gtk.TreeView to show customer names.
-        # self.cust_col = customer_column
-
         # call base class init
         TreeViewTooltips.__init__(self)
 
     def get_tooltip(self, view, column, path):
         model = view.get_model()
         cards = model[path][0]
-
+        print path
         title=column.get_title()
-        display='<big>%s</big>\n<i>%s</i>' % (title,onlinehelp[title])
+        display='<big>%s for %s</big>\n<i>%s</i>' % (title,cards,onlinehelp[title])
         return (display)
 
     def location(self, x, y, w, h):
-        # rename me to "location" so I override the base class
-        # method.  This will demonstrate being able to change
-        # where the tooltip window popups, relative to the
-        # pointer.
 
         # this will place the tooltip above and to the right
         return x + 30, y - (h + 10)
