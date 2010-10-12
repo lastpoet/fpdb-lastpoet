@@ -1013,7 +1013,26 @@ class Filters(threading.Thread):
         d.set_title(_('Pick a date'))
 
         vb = gtk.VBox()
-        cal = gtk.Calendar()
+        cal = gtk.Calendar()  
+        
+        if entry == self.start_date: 
+            cal_date = self.start_date.get_text()
+            if cal_date == '':
+                self.cursor.execute(self.sql.query['get_first_date'])
+                result = self.db.cursor.fetchall()
+                cal_date = result[0][0].split()[0]
+                self.start_date.set_text(cal_date) 
+        elif entry == self.end_date: 
+            cal_date = self.end_date.get_text()
+            if cal_date == '':
+                self.cursor.execute(self.sql.query['get_last_date'])
+                result = self.db.cursor.fetchall()
+                cal_date = result[0][0].split()[0]
+                self.end_date.set_text(cal_date)            
+              
+        (year,month,day)=cal_date.split('-')
+        cal.select_month(int(month)-1, int(year))
+        cal.select_day(int(day))        
         vb.pack_start(cal, expand=False, padding=0)
 
         btn = gtk.Button(_('Done'))
@@ -1039,6 +1058,7 @@ class Filters(threading.Thread):
         t2 = self.end_date.get_text()
 
         if t1 == '':
+            
             self.cursor.execute(self.sql.query['get_first_date'])
             result = self.db.cursor.fetchall()
             t1 = result[0][0].split()[0]
