@@ -1039,9 +1039,16 @@ class Filters(threading.Thread):
         t2 = self.end_date.get_text()
 
         if t1 == '':
-            t1 = '1970-01-02'
+            self.cursor.execute(self.sql.query['get_first_date'])
+            result = self.db.cursor.fetchall()
+            t1 = result[0][0].split()[0]
+            self.start_date.set_text(t1)
+        
         if t2 == '':
-            t2 = '2020-12-12'
+            self.cursor.execute(self.sql.query['get_last_date'])
+            result = self.db.cursor.fetchall()
+            t2 = result[0][0].split()[0]
+            self.end_date.set_text(t2)
 
         s1 = strptime(t1, "%Y-%m-%d") # make time_struct
         s2 = strptime(t2, "%Y-%m-%d")
