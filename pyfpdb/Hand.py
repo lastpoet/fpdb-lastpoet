@@ -212,17 +212,18 @@ player  (string) name of player
 shown   whether they were revealed at showdown
 mucked  whether they were mucked at showdown
 dealt   whether they were seen in a 'dealt to' line
-"""#        log.debug("addHoleCards %s %s" % (open + closed, player))
+"""
+#        log.debug("addHoleCards %s %s" % (open + closed, player))
         try:
             self.checkPlayerExists(player)
         except FpdbParseError, e:
-            print _("[ERROR] Tried to add holecards for unknown player: '%s'") % (player,)
+            print _("[ERROR] Tried to add holecards for unknown player: %s") % (player,)
             return
 
         if dealt:  self.dealt.add(player)
         if shown:  self.shown.add(player)
         if mucked: self.mucked.add(player)
-        self.holecards[street] = {}
+
         self.holecards[street][player] = [open, closed]
 
     def prepInsert(self, db):

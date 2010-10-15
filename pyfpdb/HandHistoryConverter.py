@@ -35,8 +35,11 @@ import datetime
 from pytz import timezone
 import pytz
 
-import logging, logging.handlers
+import logging
 # logging has been set up in fpdb.py or HUD_main.py, use their settings:
+log = logging.getLogger("parser")
+
+
 import Hand
 from Exceptions import FpdbParseError
 import Configuration
@@ -67,22 +70,12 @@ class HandHistoryConverter():
 in_path   (default '-' = sys.stdin)
 out_path  (default '-' = sys.stdout)
 follow :  whether to tail -f the input"""
-        self.log = logging.getLogger("parser")
-        self.log.setLevel(logging.DEBUG)
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        self.log.addHandler(ch)
-        formatter = logging.Formatter("%(asctime)s:%(name)s:%(levelname)s - %(message)s")
-        ch.setFormatter(formatter)
 
         self.config = config
         self.import_parameters = self.config.get_import_parameters()
         self.sitename = sitename
-        #self.log = Configuration.get_logger("logging.conf", "parser", log_dir=self.config.dir_log)
-
-
-        self.log.info('PARSED')
-        self.log.info("HandHistory init - %s site, %s subclass, in_path '%s'; out_path '%s'"
+        #log = Configuration.get_logger("logging.conf", "parser", log_dir=self.config.dir_log)
+        log.info("HandHistory init - %s site, %s subclass, in_path '%s'; out_path '%s'" 
                  % (self.sitename, self.__class__, in_path, out_path) ) # should use self.filter, not self.sitename
 
         self.index     = index
@@ -114,16 +107,14 @@ follow :  whether to tail -f the input"""
         if autostart:
             self.start()
 
-
-
     def __str__(self):
-        return u"""
-HandHistoryConverter: '%s'
-    filetype    '%s'
-    in_path     '%s'
-    out_path    '%s'
-    follow      '%s'
-    """ %  (self.sitename, self.filetype, self.in_path, self.out_path, self.follow)
+        return """
+HandHistoryConverter: '%(sitename)s'  
+    filetype    '%(filetype)s'
+    in_path     '%(in_path)s'
+    out_path    '%(out_path)s'
+    follow      '%(follow)s'
+    """ %  locals()
 
     def start(self):
         """Process a hand at a time from the input specified by in_path.
@@ -136,7 +127,7 @@ Otherwise, finish at EOF.
 
         starttime = time.time()
         if not self.sanityCheck():
-            self.log.warning(_("Failed sanity check"))
+            log.warning(_("Failed sanity check"))
             return
 
         try:
@@ -144,19 +135,19 @@ Otherwise, finish at EOF.
             self.numErrors = 0
             if self.follow:
                 #TODO: See how summary files can be handled on the fly (here they should be rejected as before)
-                self.log.info(_("Tailing '%s'") % self.in_path)
+                log.info(_("Tailing '%s'") % self.in_path)
                 for handText in self.tailHands():
                     try:
                         self.processHand(handText)
                         self.numHands += 1
                     except FpdbParseError, e:
                         self.numErrors += 1
-                        self.log.exception(_("HHC.start(follow): processHand failed: Exception msg: '%s'") % e)
-                        self.log.debug(handText)
+                        log.warning(_("HHC.start(follow): processHand failed: Exception msg: '%s'") % e)
+                        log.debug(handText)
             else:
                 handsList = self.allHandsAsList()
-                self.log.debug( _("handsList is ") + str(handsList) )
-                self.log.info("Parsing %d hands" % len(handsList))
+                log.debug( _("handsList is ") + str(handsList) )
+                log.info("Parsing %d hands" % len(handsList))
                 # Determine if we're dealing with a HH file or a Summary file
                 # quick fix : empty files make the handsList[0] fail ==> If empty file, go on with HH parsing
                 if len(handsList) == 0 or self.isSummary(handsList[0]) == False:
@@ -166,22 +157,22 @@ Otherwise, finish at EOF.
                             self.processedHands.append(self.processHand(handText))
                         except FpdbParseError, e:
                             self.numErrors += 1
-                            self.log.exception(_("HHC.start(): processHand failed: Exception msg: '%s'") % e)
-                            self.log.debug(handText)
+                            log.warning(_("HHC.start(): processHand failed: Exception msg: '%s'") % e)
+                            log.debug(handText)
                     self.numHands = len(handsList)
                     endtime = time.time()
-                    self.log.info(_("Read %d hands (%d failed) in %.3f seconds") % (self.numHands, self.numErrors, endtime - starttime))
+                    log.info(_("Read %d hands (%d failed) in %.3f seconds") % (self.numHands, self.numErrors, endtime - starttime))
                 else:
                         self.parsedObjectType = "Summary"
                         summaryParsingStatus = self.readSummaryInfo(handsList)
                         endtime = time.time()
                         if summaryParsingStatus :
-                            self.log.info(_("Summary file '%s' correctly parsed  (took %.3f seconds)") % (self.in_path, endtime - starttime))
+                            log.info(_("Summary file '%s' correctly parsed  (took %.3f seconds)") % (self.in_path, endtime - starttime))
                         else :
-                            self.log.warning(_("Error converting summary file '%s' (took %.3f seconds)") % (self.in_path, endtime - starttime))
+                            log.warning(_("Error converting summary file '%s' (took %.3f seconds)") % (self.in_path, endtime - starttime))
 
         except IOError, ioe:
-            self.log.exception(_("Error converting '%s'") % self.in_path)
+            log.exception(_("Error converting '%s'") % self.in_path)
         finally:
             if self.out_fh != sys.stdout:
                 self.out_fh.close()
@@ -212,7 +203,7 @@ which it expects to find at self.re_TailSplitHands -- see for e.g. Everleaf.py.
                     time.sleep(interval)
                     fd.seek(where)
                 else:
-                    self.log.debug(_("%s changed inode numbers from %d to %d") % (self.in_path, fd_results[1], st_results[1]))
+                    log.debug(_("%s changed inode numbers from %d to %d") % (self.in_path, fd_results[1], st_results[1]))
                     fd = codecs.open(self.in_path, 'r', self.codepage)
                     fd.seek(where)
             else:
@@ -260,12 +251,12 @@ which it expects to find at self.re_TailSplitHands -- see for e.g. Everleaf.py.
         # if self.archive:
         #     self.obs = self.convert_archive(self.obs)
         if self.starsArchive == True:
-            self.log.debug(_("Converting starsArchive format to readable"))
+            log.debug(_("Converting starsArchive format to readable"))
             m = re.compile('^Hand #\d+', re.MULTILINE)
             self.obs = m.sub('', self.obs)
 
         if self.ftpArchive == True:
-            self.log.debug(_("Converting ftpArchive format to readable"))
+            log.debug(_("Converting ftpArchive format to readable"))
             # Remove  ******************** # 1 *************************
             m = re.compile('\*{20}\s#\s\d+\s\*{25}\s+', re.MULTILINE)
             self.obs = m.sub('', self.obs)
@@ -284,7 +275,7 @@ which it expects to find at self.re_TailSplitHands -- see for e.g. Everleaf.py.
 
     def processHand(self, handText):
         gametype = self.determineGameType(handText)
-        self.log.debug("gametype %s" % gametype)
+        log.debug("gametype %s" % gametype)
         hand = None
         l = None
         if gametype is None:
@@ -300,21 +291,21 @@ which it expects to find at self.re_TailSplitHands -- see for e.g. Everleaf.py.
 
         if l in self.readSupportedGames():
             if gametype['base'] == 'hold':
-                self.log.debug("hand = Hand.HoldemOmahaHand(self, self.sitename, gametype, handtext)")
+                log.debug("hand = Hand.HoldemOmahaHand(self, self.sitename, gametype, handtext)")
                 hand = Hand.HoldemOmahaHand(self.config, self, self.sitename, gametype, handText)
             elif gametype['base'] == 'stud':
                 hand = Hand.StudHand(self.config, self, self.sitename, gametype, handText)
             elif gametype['base'] == 'draw':
                 hand = Hand.DrawHand(self.config, self, self.sitename, gametype, handText)
         else:
-            self.log.exception(_("Unsupported game type: %s" % gametype))
+            log.info(_("Unsupported game type: %s" % gametype))
             raise FpdbParseError(_("Unsupported game type: %s" % gametype))
 
         if hand:
             #hand.writeHand(self.out_fh)
             return hand
         else:
-            self.log.error(_("Unsupported game type: %s" % gametype))
+            log.error(_("Unsupported game type: %s" % gametype))
             # TODO: pity we don't know the HID at this stage. Log the entire hand?
 
 
@@ -345,7 +336,7 @@ or None if we fail to get the info """
     #TODO: which parts are optional/required?
 
     def readHandInfo(self, hand): abstract
-    """Read and set information about the hand being dealt, and set the correct
+    """Read and set information about the hand being dealt, and set the correct 
     variables in the Hand object 'hand
 
     * hand.startTime - a datetime object
@@ -368,7 +359,7 @@ or None if we fail to get the info """
     #TODO: which parts are optional/required?
 
     def readPlayerStacks(self, hand): abstract
-    """This function is for identifying players at the table, and to pass the
+    """This function is for identifying players at the table, and to pass the 
     information on to 'hand' via Hand.addPlayer(seat, name, chips)
 
     At the time of writing the reference function in the PS converter is:
@@ -387,7 +378,7 @@ or None if we fail to get the info """
     def compilePlayerRegexs(self): abstract
     """Compile dynamic regexes -- compile player dependent regexes.
 
-    Depending on the ambiguity of lines you may need to match, and the complexity of
+    Depending on the ambiguity of lines you may need to match, and the complexity of 
     player names - we found that we needed to recompile some regexes for player actions so that they actually contained the player names.
 
     eg.
@@ -510,7 +501,7 @@ or None if we fail to get the info """
         if self.filetype == "text":
             if self.in_path == '-':
                 # read from stdin
-                self.log.debug(_("Reading stdin with %s") % self.codepage) # is this necessary? or possible? or what?
+                log.debug(_("Reading stdin with %s") % self.codepage) # is this necessary? or possible? or what?
                 in_fh = codecs.getreader('cp1252')(sys.stdin)
             else:
                 for kodec in self.__listof(self.codepage):
@@ -583,26 +574,26 @@ or None if we fail to get the info """
 
     def getTourney(self):
         return self.tourney
-
+        
     @staticmethod
     def changeTimezone(time, givenTimezone, wantedTimezone):
         """Takes a givenTimezone in format AAA or AAA+HHMM where AAA is a standard timezone
            and +HHMM is an optional offset (+/-) in hours (HH) and minutes (MM)
            (See OnGameToFpdb.py for example use of the +HHMM part)
-           Tries to convert the time parameter (with no timezone) from the givenTimezone to
+           Tries to convert the time parameter (with no timezone) from the givenTimezone to 
            the wantedTimeZone (currently only allows "UTC")
         """
-#        log.debug( _("raw time:")+str(time) + _(" given TZ:")+str(givenTimezone) )
+        log.debug( _("raw time:")+str(time) + _(" given TZ:")+str(givenTimezone) )
         if wantedTimezone=="UTC":
             wantedTimezone = pytz.utc
         else:
-            raise Exception("Invalid timezone") #TODO raise appropriate error
+            raise Error #TODO raise appropriate error
 
         givenTZ = None
         if HandHistoryConverter.re_tzOffset.match(givenTimezone):
             offset = int(givenTimezone[-5:])
             givenTimezone = givenTimezone[0:-5]
-            self.log.debug( _("changeTimeZone: offset=") + str(offset) )
+            log.debug( _("changeTimeZone: offset=") + str(offset) )
         else: offset=0
 
         if givenTimezone=="ET":
@@ -652,20 +643,20 @@ or None if we fail to get the info """
             # Each State on the East Coast has different DSTs.
             # Melbournce is out because I don't like AFL, Queensland doesn't have DST
             # ACT is full of politicians and Tasmania will never notice.
-            # Using Sydney.
+            # Using Sydney. 
             givenTZ = timezone('Australia/Sydney')
         elif givenTimezone == 'NZT': # New Zealand Time
             pass
         else:
-            raise Exception("Invalid timezone") #TODO raise appropriate error
-
+            raise Error #TODO raise appropriate error
+        
         if givenTZ is None:
-            raise Exception("Invalid timezone")#TODO raise appropriate error
+            raise Error #TODO raise appropriate error
                         # (or just return time unchanged?)
 
         localisedTime = givenTZ.localize(time)
         utcTime = localisedTime.astimezone(wantedTimezone) + datetime.timedelta(seconds=-3600*(offset/100)-60*(offset%100))
-#        self.log.debug( _("utcTime:")+str(utcTime) )
+        log.debug( _("utcTime:")+str(utcTime) )
         return utcTime
     #end @staticmethod def changeTimezone
 
@@ -704,18 +695,18 @@ def get_out_fh(out_path, parameters):
     if out_path == '-':
         return(sys.stdout)
     elif parameters['saveStarsHH']:
-        out_dir = os.path.dirname(out_path)
-        if not os.path.isdir(out_dir) and out_dir != '':
-            try:
-                os.makedirs(out_dir)
-            except: # we get a WindowsError here in Windows.. pretty sure something else for Linux :D
-                self.log.error(_("Unable to create output directory %s for HHC!") % out_dir)
-                print _("*** ERROR: UNABLE TO CREATE OUTPUT DIRECTORY"), out_dir
-            else:
-                self.log.info(_("Created directory '%s'") % out_dir)
-        try:
-            return(codecs.open(out_path, 'w', 'utf8'))
-        except:
-            self.log.error(_("out_path %s couldn't be opened") % (out_path))
+        out_dir = os.path.dirname(out_path) 
+        if not os.path.isdir(out_dir) and out_dir != '': 
+            try: 
+                os.makedirs(out_dir) 
+            except: # we get a WindowsError here in Windows.. pretty sure something else for Linux :D 
+                log.error(_("Unable to create output directory %s for HHC!") % out_dir) 
+                print _("*** ERROR: UNABLE TO CREATE OUTPUT DIRECTORY"), out_dir 
+            else: 
+                log.info(_("Created directory '%s'") % out_dir) 
+        try: 
+            return(codecs.open(out_path, 'w', 'utf8')) 
+        except: 
+            log.error(_("out_path %s couldn't be opened") % (out_path)) 
     else:
         return(sys.stdout)
