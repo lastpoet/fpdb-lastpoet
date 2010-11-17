@@ -65,7 +65,7 @@ class GuiSessionViewer (threading.Thread):
         self.fig = None
         self.canvas = None
         self.ax = None
-        self.graphBox = None
+        self.replayBox = None
         
         # create new db connection to avoid conflicts with other threads
         self.db = Database.Database(self.conf, sql=self.sql)
@@ -209,11 +209,11 @@ class GuiSessionViewer (threading.Thread):
 
 
 
-        self.graphBox = gtk.VBox(False, 0)
-        self.graphBox.show()
+        self.replayBox = gtk.VBox(False, 0)
+        self.replayBox.show()
         self.generateGraph(opens, closes, highs, lows)
 
-        vbox.pack_start(self.graphBox)
+        vbox.pack_start(self.replayBox)
         # Separator
         sep = gtk.HSeparator()
         vbox.pack_start(sep, expand=False, padding=3)
@@ -329,7 +329,7 @@ class GuiSessionViewer (threading.Thread):
         try:
             try:
                 if self.canvas:
-                    self.graphBox.remove(self.canvas)
+                    self.replayBox.remove(self.canvas)
             except:
                 pass
 
@@ -371,7 +371,7 @@ class GuiSessionViewer (threading.Thread):
         self.ax.grid(color='g', linestyle=':', linewidth=0.2)
 
         candlestick2(self.ax, opens, closes, highs, lows, width=0.50, colordown='r', colorup='g', alpha=1.00)
-        self.graphBox.add(self.canvas)
+        self.replayBox.add(self.canvas)
         self.canvas.show()
         self.canvas.draw()
 

@@ -95,11 +95,11 @@ class GuiGraphViewer (threading.Thread):
         self.hpane = gtk.HPaned()
         self.hpane.pack1(self.leftPanelBox)
         self.mainHBox.add(self.hpane)
-        # hierarchy:  self.mainHBox / self.hpane / self.graphBox / self.canvas / self.fig / self.ax
+        # hierarchy:  self.mainHBox / self.hpane / self.replayBox / self.canvas / self.fig / self.ax
 
-        self.graphBox = gtk.VBox(False, 0)
-        self.graphBox.show()
-        self.hpane.pack2(self.graphBox)
+        self.replayBox = gtk.VBox(False, 0)
+        self.replayBox.show()
+        self.hpane.pack2(self.replayBox)
         self.hpane.show()
 
         self.fig = None
@@ -119,7 +119,7 @@ class GuiGraphViewer (threading.Thread):
         try:
             try:
                 if self.canvas:
-                    self.graphBox.remove(self.canvas)
+                    self.replayBox.remove(self.canvas)
             except:
                 pass
 
@@ -221,7 +221,7 @@ class GuiGraphViewer (threading.Thread):
                 self.ax.plot(green, color='green', label=_('Hands: %d\nProfit: $%.2f') %(len(green), green[-1]))
                 self.ax.plot(blue, color='blue', label=_('Showdown: $%.2f') %(blue[-1]))
                 self.ax.plot(red, color='red', label=_('Non-showdown: $%.2f') %(red[-1]))
-                self.graphBox.add(self.canvas)
+                self.replayBox.add(self.canvas)
                 self.canvas.show()
                 self.canvas.draw()
 
@@ -242,7 +242,7 @@ class GuiGraphViewer (threading.Thread):
                 else:
                     self.ax.legend(loc='upper left', fancybox=True, shadow=True, prop=FontProperties(size='smaller'))
 
-                self.graphBox.add(self.canvas)
+                self.replayBox.add(self.canvas)
                 self.canvas.show()
                 self.canvas.draw()
                 #self.exportButton.set_sensitive(True)
