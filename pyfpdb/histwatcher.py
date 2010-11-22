@@ -78,12 +78,13 @@ class Watcher(object):
             filename = f[0]
             fh = open(filename)
             byte_read = f[2]
-            fh.seek(byte_read)
+            if byte_read > 0:
+                fh.seek(byte_read)
             print "Parsing file %d/%d: %s..."%(cnt, newfiles, filename)
             new_lines = fh.read()
-
             tempf = tempfile.NamedTemporaryFile(delete=False)
             tempf.write(new_lines)
+            tempf.close()
             # print tempf.name
             logf = open(os.path.join(os.environ['HOME'],'.fpdb','log','histwatcher.log'),'a')
             subprocess.call("./GuiBulkImport.py -c %s -f %s"
@@ -91,7 +92,6 @@ class Watcher(object):
             logf.close()
             os.devnull
             #print "./GuiBulkImport.py -c %s -f %s "%(self.site, tempf.name)
-            tempf.close()
             os.unlink(tempf.name)
             self.flist[i] = ([filename,time.time(),fh.tell(),False])
 

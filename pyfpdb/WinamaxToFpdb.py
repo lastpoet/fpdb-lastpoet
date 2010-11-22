@@ -208,7 +208,7 @@ class Winamax(HandHistoryConverter):
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S") # also timezone at end, e.g. " ET"
                 hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, "CET", "UTC")
             if key == 'HID1':
-                hand.handid = "1%.4d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
+                hand.handid = "1%.9d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
                 # Need to remove non-alphanumerics for MySQL
             if key == 'TABLE':
                 hand.tablename = info[key]
@@ -310,7 +310,7 @@ class Winamax(HandHistoryConverter):
                 m = self.re_PostSB.search(hand.handText)
                 hand.addBlind(m.group('PNAME'), 'small blind', m.group('SB'))
             except exceptions.AttributeError: # no small blind
-                self.log.warning( _("readBlinds in noSB exception - no SB created")+str(sys.exc_info()) )
+                log.warning( _("readBlinds in noSB exception - no SB created")+str(sys.exc_info()) )
             #hand.addBlind(None, None, None)
         for a in self.re_PostBB.finditer(hand.handText):
             hand.addBlind(a.group('PNAME'), 'big blind', a.group('BB'))
