@@ -393,7 +393,7 @@ class Hud:
 
             if     self.hud_params['h_agg_bb_mult'] != num \
                and getattr(self, 'h_aggBBmultItem'+str(num)).get_active():
-                log.debug('set_player_aggregation', num)
+                log.debug('set_player_aggregation %d', num)
                 self.hud_params['h_agg_bb_mult'] = num
                 for mult in ('1', '2', '3', '10', '10000'):
                     if mult != str(num):
@@ -404,7 +404,7 @@ class Hud:
 
             if     self.hud_params['agg_bb_mult'] != num \
                and getattr(self, 'aggBBmultItem'+str(num)).get_active():
-                log.debug('set_opponent_aggregation', num)
+                log.debug('set_opponent_aggregation %d', num)
                 self.hud_params['agg_bb_mult'] = num
                 for mult in ('1', '2', '3', '10', '10000'):
                     if mult != str(num):
@@ -493,6 +493,22 @@ class Hud:
                 self.reposition_windows()
                 # call reposition_windows, which apparently moves even hidden windows, where this function does not, even though they do the same thing, afaict
 
+        return True
+
+    def up_update_table_position(self):
+#    callback for table moved
+
+#    move the stat windows
+        adj = self.adj_seats(self.hand, self.config)
+        loc = self.config.get_locations(self.table.site, self.max)
+        for i, w in enumerate(self.stat_windows.itervalues()):
+            (x, y) = loc[adj[i+1]]
+            w.relocate(x, y)
+#    move the main window
+        self.main_window.move(self.table.x + self.site_params['xshift'], self.table.y + self.site_params['yshift'])
+#    and move any auxs
+        for aux in self.aux_windows:
+            aux.update_card_positions()
         return True
 
     def on_button_press(self, widget, event):
@@ -630,8 +646,8 @@ class Hud:
                       [config.supported_games[self.poker_game].stats[stat].col] = \
                       config.supported_games[self.poker_game].stats[stat].stat_name
 
-        if os.name == "nt": # we call update_table_position() regularly in Windows to see if we're moving around.  See comments on that function for why this isn't done in X.
-            gobject.timeout_add(500, self.update_table_position)
+#        if os.name == "nt": # we call update_table_position() regularly in Windows to see if we're moving around.  See comments on that function for why this isn't done in X.
+#            gobject.timeout_add(500, self.update_table_position)
 
     def update(self, hand, config):
         self.hand = hand   # this is the last hand, so it is available later

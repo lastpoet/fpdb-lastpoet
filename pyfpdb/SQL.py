@@ -1396,6 +1396,10 @@ class Sql:
                                              , maxSeats, knockout, rebuy, addOn, speed, shootout, matrix, sng)"""
 
         self.query['get_last_hand'] = "select max(id) from Hands"
+        
+        self.query['get_last_date'] = "SELECT MAX(startTime) FROM Hands"
+        
+        self.query['get_first_date'] = "SELECT MIN(startTime) FROM Hands"
 
         self.query['get_player_id'] = """
                 select Players.id AS player_id 
@@ -3055,8 +3059,6 @@ class Sql:
                 order by stats.category, stats.limitType, stats.bigBlindDesc desc
                          <orderbyseats>, cast(stats.PlPosition as smallint)
                 """
-        #elif db_server == 'sqlite':
-        #    self.query['playerStatsByPosition'] = """ """
 
         ####################################
         # Cash Game Graph query
@@ -4334,9 +4336,9 @@ class Sql:
         ################################
         # Counts for DB stats window
         ################################
-        self.query['getHandCount'] = "SELECT COUNT(id) FROM Hands"
-        self.query['getTourneyCount'] = "SELECT COUNT(id) FROM Tourneys"
-        self.query['getTourneyTypeCount'] = "SELECT COUNT(id) FROM TourneyTypes"
+        self.query['getHandCount'] = "SELECT COUNT(*) FROM Hands"
+        self.query['getTourneyCount'] = "SELECT COUNT(*) FROM Tourneys"
+        self.query['getTourneyTypeCount'] = "SELECT COUNT(*) FROM TourneyTypes"
         
         ################################
         # queries for dumpDatabase

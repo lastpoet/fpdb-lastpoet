@@ -70,7 +70,7 @@ class Winamax(HandHistoryConverter):
              #                    'Razz' : ('stud','razz'),
              #                    'RAZZ' : ('stud','razz'),
              #             '7 Card Stud' : ('stud','studhi'),
-                 'SEVEN_CARD_STUD_HI_LO' : ('stud','studhilo'),
+             #   'SEVEN_CARD_STUD_HI_LO' : ('stud','studhilo'),
              #                  'Badugi' : ('draw','badugi'),
              # 'Triple Draw 2-7 Lowball' : ('draw','27_3draw'),
              #             '5 Card Draw' : ('draw','fivedraw')
@@ -84,7 +84,6 @@ class Winamax(HandHistoryConverter):
 
 # Winamax Poker - CashGame - HandId: #279823-223-1285031451 - Holdem no limit (0.02€/0.05€) - 2010/09/21 03:10:51 UTC
 # Table: 'Charenton-le-Pont' 9-max (real money) Seat #5 is the button
-
     re_HandInfo = re.compile(u"""
             \s*Winamax\sPoker\s-\sCashGame\s-\sHandId:\s\#(?P<HID1>\d+)-(?P<HID2>\d+)-(?P<HID3>\d+).*\s
             (?P<GAME>Holdem|Omaha)\s
@@ -140,6 +139,7 @@ class Winamax(HandHistoryConverter):
 
             self.re_Action = re.compile('(, )?(?P<PNAME>.*?)(?P<ATYPE> bets| checks| raises| calls| folds)( (%(CUR)s)?(?P<BET>[\d\.]+)(%(CUR)s)?)?( and is all-in)?' % subst)
             self.re_ShowdownAction = re.compile('(?P<PNAME>[^\(\)\n]*) (\((small blind|big blind|button)\) )?shows \[(?P<CARDS>.+)\]')
+
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
             self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
             self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
@@ -209,6 +209,7 @@ class Winamax(HandHistoryConverter):
                 hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, "CET", "UTC")
             if key == 'HID1':
                 hand.handid = "1%.9d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
+
                 # Need to remove non-alphanumerics for MySQL
             if key == 'TABLE':
                 hand.tablename = info[key]
@@ -219,7 +220,7 @@ class Winamax(HandHistoryConverter):
         hand.mixed = None
 
     def readPlayerStacks(self, hand):
-        log.info("readplayerstacks: re is '%s'" % self.re_PlayerInfo)
+        log.debug(_("readplayerstacks: re is '%s'" % self.re_PlayerInfo))
         m = self.re_PlayerInfo.finditer(hand.handText)
         for a in m:
             print "DEBUG: found '%s' with '%s'" %(a.group('PNAME'), a.group('CASH'))
@@ -227,47 +228,6 @@ class Winamax(HandHistoryConverter):
 
 
     def markStreets(self, hand):
-# *** ANTE/BLINDS ***
-# Player1 posts small blind 0.02€
-# Player2 posts big blind 0.05€
-# Dealt to Player6 [5d Kh 9c Tc]
-# *** PRE-FLOP ***
-# Player3 folds
-# Player4 calls 0.05€
-# Player5 folds
-# Player6 calls 0.05€
-# Player8 calls 0.05€
-# Player9 folds
-# Player1 calls 0.03€
-# Player2 checks
-# *** FLOP *** [5h 8d 3h]
-# Player1 checks
-# Player2 checks
-# Player7 checks
-# Player6 checks
-# Player8 checks
-# *** TURN *** [5h 8d 3h][7h]
-# Player1 checks
-# Player2 checks
-# Player7 checks
-# Player6 checks
-# Player8 checks
-# *** RIVER *** [5h 8d 3h 7h][2d]
-# Player1 checks
-# Player2 checks
-# Player7 checks
-# Player6 bets 0.25€
-# Player8 folds
-# Player1 folds
-# Player2 folds
-# Player7 calls 0.25€
-# *** SHOW DOWN ***
-# Player6 shows [5d Kh 9c Tc] (One pair : 5)
-# Player7 shows [6h Js 9s Td] (Straight 9 high)
-# Player7 collected 0.71€ from pot
-# *** SUMMARY ***
-# Total pot 0.71€ | Rake 0.04€
-
         m =  re.search(r"\*\*\* ANTE\/BLINDS \*\*\*(?P<PREFLOP>.+(?=\*\*\* FLOP \*\*\*)|.+)"
                        r"(\*\*\* FLOP \*\*\*(?P<FLOP> \[\S\S \S\S \S\S\].+(?=\*\*\* TURN \*\*\*)|.+))?"
                        r"(\*\*\* TURN \*\*\* \[\S\S \S\S \S\S](?P<TURN>\[\S\S\].+(?=\*\*\* RIVER \*\*\*)|.+))?"
@@ -278,7 +238,7 @@ class Winamax(HandHistoryConverter):
 #            print "adding street", m.group(0)
 #            print "---"
         except:
-            print ("Failed to add streets. handtext=%s")
+            print (_("Failed to add streets. handtext=%s"))
 
     #Needs to return a list in the format
     # ['player1name', 'player2name', ...] where player1name is the sb and player2name is bb,
@@ -288,7 +248,7 @@ class Winamax(HandHistoryConverter):
         m = self.re_Button.search(hand.handText)
         if m:
             hand.buttonpos = int(m.group('BUTTON'))
-            log.debug('readButton: button on pos %d'%hand.buttonpos)
+            log.debug(_('readButton: button on pos %d'%hand.buttonpos))
         else:
             log.warning(_('readButton: not found'))
 
@@ -340,13 +300,13 @@ class Winamax(HandHistoryConverter):
             if street in hand.streets.keys():
                 m = self.re_HeroCards.finditer(hand.streets[street])
             if m == []:
-                log.debug("No hole cards found for %s"%street)
+                log.debug(_("No hole cards found for %s"%street))
             for found in m:
                 hand.hero = found.group('PNAME')
                 newcards = found.group('CARDS').split(' ')
 #                print "DEBUG: addHoleCards(%s, %s, %s)" %(street, hand.hero, newcards)
                 hand.addHoleCards(street, hand.hero, closed=newcards, shown=False, mucked=False, dealt=True)
-                log.debug("Hero cards  %s: %s"%(hand.hero, newcards))
+                log.debug(_("Hero cards %s: %s"%(hand.hero, newcards)))
 
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
@@ -367,32 +327,31 @@ class Winamax(HandHistoryConverter):
             elif action.group('ATYPE') == ' stands pat':
                 hand.addStandsPat( street, action.group('PNAME'))
             else:
-                log.fatal("DEBUG: unimplemented readAction: '%s' '%s'") %(action.group('PNAME'),action.group('ATYPE'),)
+                log.fatal(_("DEBUG: unimplemented readAction: '%s' '%s'")) %(action.group('PNAME'),action.group('ATYPE'),)
 #            print "Processed %s"%acts
 #            print "committed=",hand.pot.committed
 
-
     def readShowdownActions(self, hand):
         for shows in self.re_ShowdownAction.finditer(hand.handText):
-            log.debug("add show actions %s"%shows)
+            log.debug(_("add show actions %s"%shows))
             cards = shows.group('CARDS')
             cards = cards.split(' ')
 #            print "DEBUG: addShownCards(%s, %s)" %(cards, shows.group('PNAME'))
             hand.addShownCards(cards, shows.group('PNAME'))
 
-
     def readCollectPot(self,hand):
         # Winamax has unfortunately thinks that a sidepot is created
         # when there is uncalled money in the pot - something that can
         # only happen when a player is all-in
-        # The first side pot mentioned is always the uncalled money, so we can remove it.
-        # If there is only 1 collected line, then add it
+
+        # Becuase of this, we need to do the same calculations as class Pot()
+        # and determine if the amount returned is the same as the amount collected
+        # if so then the collected line is invalid
 
         total = sum(hand.pot.committed.values()) + sum(hand.pot.common.values())
 
         # Return any uncalled bet.
         committed = sorted([ (v,k) for (k,v) in hand.pot.committed.items()])
-#        print "committed=",committed
         #print "DEBUG: committed: %s" % committed
         #ERROR below. lastbet is correct in most cases, but wrong when
         #             additional money is committed to the pot in cash games
@@ -411,15 +370,12 @@ class Winamax(HandHistoryConverter):
         for m in self.re_CollectPot.finditer(hand.handText):
             collectees.append([m.group('PNAME'), m.group('POT')])
 
-#        print "returned =", returned
         for plyr, p in collectees:
-            epsilon = 0.01
-            if plyr in returned.keys() and float(p) - float(returned[plyr]) > -epsilon:
-                p = str( Decimal(p) - returned[plyr])
-                returned.pop(plyr)
-
-#            print "DEBUG: addCollectPot(%s, %s)" %(plyr, p)
-            hand.addCollectPot(player=plyr,pot=p)
+            if plyr in returned.keys() and Decimal(p) - returned[plyr] == 0:
+                p = Decimal(p) - returned[plyr]
+            if p > 0:
+                print "DEBUG: addCollectPot(%s,%s)" %(plyr, p)
+                hand.addCollectPot(player=plyr,pot=p)
 
     def getRake(self, hand):
         m = self.re_Rake.search(hand.handText)
@@ -433,7 +389,7 @@ class Winamax(HandHistoryConverter):
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
-            log.debug("Read shown cards: %s"%m.group(0))
+            log.debug(_("Read shown cards: %s"%m.group(0)))
             cards = m.group('CARDS')
             cards = cards.split(' ') # needs to be a list, not a set--stud needs the order
             (shown, mucked) = (False, False)
