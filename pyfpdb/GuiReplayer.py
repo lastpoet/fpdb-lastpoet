@@ -16,6 +16,7 @@
 #In the "official" distribution you can find the license in agpl-3.0.txt.
 
 import L10n
+from pygments.lexers.web import ActionScript3Lexer
 _ = L10n.get_translation()
 
 
@@ -29,9 +30,8 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 import math
-from time import sleep
+import gobject
 
-MyStack={}
 
 class GuiReplayer:
     def __init__(self, config, querylist, mainwin, debug=True):
@@ -91,96 +91,103 @@ class GuiReplayer:
 
         self.replayBox.pack_start(self.area)
 
+        self.MyHand = self.importhand()
+        
+        self.maxseats=self.MyHand.maxseats
+        
+        self.table={}     #create table with positions, player names and stacks
+        for i in range(0,self.maxseats):     # radius: 200, center: 250,250
+            x= int (round(250+200*math.cos(2*i*math.pi/self.maxseats)))
+            y= int (round(250+200*math.sin(2*i*math.pi/self.maxseats)))            
+            try:
+                self.table[i]={"name":self.MyHand.players[i][1],"stack":Decimal(self.MyHand.players[i][2]),"x":x,"y":y}               #save coordinates of each player          
+            except IndexError:  #if seat is empty
+                print "seat",i+1,"out of",self.maxseats,"empty"
+                pass  
 
+        self.actions=[]     #create list with all actions
+              
+        if isinstance(self.MyHand, HoldemOmahaHand):
+            if self.MyHand.gametype['category'] == 'holdem':
+                self.play_holdem()
 
-                   
-
-    def launch_play(self):
-        MyHand = self.importhand()
-        if isinstance(MyHand, HoldemOmahaHand):
-            if MyHand.gametype['category'] == 'holdem':
-                self.play_holdem(MyHand)
-
+        self.action_number=0                
+        gobject.timeout_add(1000,self.draw_action)
        
                     
     def area_expose(self, area, event):
-        global ready
+        print "expose action number",self.action_number 
         self.style = self.area.get_style()
         self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
-        print "expose"
-        self.launch_play()       
 
-
-    def play_holdem(self,MyHand):
-        maxseats=MyHand.maxseats
-        pos={}
-
-        self.area.window.draw_arc(self.gc, 0, 125, 125, 300, 300, 0, 360*64) #table
-
-        #setup the table with names and initial stacks
-        for i in range(0,maxseats):     # radius: 200, center: 250,250
-            x= int (round(250+200*math.cos(2*i*math.pi/maxseats)))
-            y= int (round(250+200*math.sin(2*i*math.pi/maxseats)))            
-            try:
-                pos[MyHand.players[i][1]]=(x,y)               #save coordinates of each player            
-                self.pangolayout.set_text(MyHand.players[i][1])     #player names 
-                self.area.window.draw_layout(self.gc, x, y, self.pangolayout)                                 
-                self.pangolayout.set_text('$'+MyHand.players[i][2])     #player stacks
-                self.area.window.draw_layout(self.gc, x+10, y+20, self.pangolayout)
-                MyStack[MyHand.players[i][1]]=Decimal(MyHand.players[i][2]) #saves stack
-            except IndexError:  #if seat is empty
-                pass 
-              
+        playerid='999'  #makes sure we have an error if player is not recognised
+        for i in range(0,len(self.table)):  #must be a better way to find the player id in the table...
+            if self.table[i]['name']==self.actions[self.action_number][1]:
+                playerid=i
+        
+        if self.actions[self.action_number][3]:
+            self.table[playerid]["stack"] -= Decimal(self.actions[self.action_number][3])  #decreases stack if player bets
+                
         cm = self.gc.get_colormap()
-        color = cm.alloc_color("red")                      
-        self.gc.set_foreground(color)
-
-        
-        print MyStack
-        
-        self.draw_actions('BLINDSANTES', MyHand, pos)        
-        self.draw_actions('PREFLOP', MyHand, pos)
-        self.draw_actions('FLOP', MyHand, pos)
-        self.draw_actions('TURN', MyHand, pos)
-        self.draw_actions('RIVER', MyHand, pos)
-                     
         color = cm.alloc_color("black")                      
-        self.gc.set_foreground(color)
+        self.gc.set_foreground(color)   
         
-        print MyStack
+        self.area.window.draw_arc(self.gc, 0, 125, 125, 300, 300, 0, 360*64) #table
+        for i in self.table:
+            self.pangolayout.set_text(self.table[i]["name"])     #player names 
+            self.area.window.draw_layout(self.gc, self.table[i]["x"],self.table[i]["y"], self.pangolayout)                                 
+            self.pangolayout.set_text('$'+str(self.table[i]["stack"]))     #player stacks
+            self.area.window.draw_layout(self.gc, self.table[i]["x"]+10,self.table[i]["y"]+20, self.pangolayout)
+            
+        color = cm.alloc_color("green")                      
+        self.gc.set_foreground(color)  
+                        
+        if self.actions[self.action_number][0]>1:   #displays flop
+            self.pangolayout.set_text(self.MyHand.board['FLOP'][0]+" "+self.MyHand.board['FLOP'][1]+" "+self.MyHand.board['FLOP'][2])
+            self.area.window.draw_layout(self.gc,210,240, self.pangolayout)
+        if self.actions[self.action_number][0]>2:   #displays turn
+            self.pangolayout.set_text(self.MyHand.board['TURN'][0])
+            self.area.window.draw_layout(self.gc,270,240, self.pangolayout)
+        if self.actions[self.action_number][0]>3:   #displays river
+            self.pangolayout.set_text(self.MyHand.board['RIVER'][0])
+            self.area.window.draw_layout(self.gc,290,240, self.pangolayout)             
+                
+        color = cm.alloc_color("red")   #highlights the action                   
+        self.gc.set_foreground(color)
+                       
+        self.pangolayout.set_text(self.actions[self.action_number][2]) #displays action       
+        self.area.window.draw_layout(self.gc, self.table[playerid]["x"]+10,self.table[playerid]["y"]+35, self.pangolayout)
+        self.pangolayout.set_text(self.actions[self.action_number][3]) #displays amount   
+        self.area.window.draw_layout(self.gc, self.table[playerid]["x"]+10,self.table[playerid]["y"]+55, self.pangolayout)
+
+        color = cm.alloc_color("black")      #we don't want to draw the filters and others in red                
+        self.gc.set_foreground(color)    
+                
+    def play_holdem(self):   
+        actions=('BLINDSANTES','PREFLOP','FLOP','TURN','RIVER')        
+        for action in actions: 
+            for i in range(0,len(self.MyHand.actions[action])):
+                player=self.MyHand.actions[action][i][0]
+                act=self.MyHand.actions[action][i][1]
+                try:
+                    amount=str(self.MyHand.actions[action][i][2])
+                except:
+                    amount=''   #no amount
+                self.actions.append([actions.index(action),player,act,amount])
+        print self.actions
         
 
-    def draw_action(self, pos, i):
-        self.pangolayout.set_text(i[1]) #displays action
-    #gets text size
-    #            text_width, text_height = self.pangolayout.get_pixel_size()
-    #            print text_width, text_height
-    #max seen  72 17
-    #clear area
-        cm = self.gc.get_colormap()
-        color = cm.alloc_color("lightgrey")
-        self.gc.set_foreground(color)
-        self.area.window.draw_rectangle(self.gc, True, pos[i[0]][0] + 10, pos[i[0]][1] + 35, 80, 20)
-        color = cm.alloc_color("red")
-        self.gc.set_foreground(color)
-        self.area.window.draw_layout(self.gc, pos[i[0]][0] + 10, pos[i[0]][1] + 35, self.pangolayout)
-        try:
-            self.pangolayout.set_text(str(i[2])) #displays amount
-            self.area.window.draw_layout(self.gc, pos[i[0]][0] + 10, pos[i[0]][1] + 55, self.pangolayout)
-            MyStack[i[0]] -= i[2]
-        except:
-            #no amount
-            pass
-        rect = gtk.gdk.Rectangle(pos[i[0]][0] + 10, pos[i[0]][1] + 35, 80, 20)
-        self.area.window.invalidate_rect(rect, False)
-        self.area.window.process_updates(False)
-        print "redraw"
-
-
-    def draw_actions(self, action, MyHand, pos):
-        for i in MyHand.actions[action]:            
-            self.draw_action(pos, i)
-
+    def draw_action(self):
+        if self.action_number==len(self.actions)-1:
+            return False
+        self.action_number+=1
+        if self.area.window:
+            alloc = self.area.get_allocation()
+            rect = gtk.gdk.Rectangle(0, 0, alloc.width, alloc.height)
+            self.area.window.invalidate_rect(rect, True)
+            self.area.window.process_updates(True)
+        print "draw action",self.action_number
+        return True
 
 
     def get_vbox(self):
