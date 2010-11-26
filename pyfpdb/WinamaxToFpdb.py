@@ -205,6 +205,12 @@ class Winamax(HandHistoryConverter):
     def readHandInfo(self, hand):
         info = {}
         m =  self.re_HandInfo.search(hand.handText)
+>>>>>>>>>>>>>>>>>>>> File 1
+>>>>>>>>>>>>>>>>>>>> File 2
+
+>>>>>>>>>>>>>>>>>>>> File 3
+
+<<<<<<<<<<<<<<<<<<<<
         if m:
             info.update(m.groupdict())
 
@@ -377,6 +383,7 @@ class Winamax(HandHistoryConverter):
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
         for action in m:
+            acts = action.groupdict()
             if action.group('ATYPE') == ' raises':
                 hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' calls':
