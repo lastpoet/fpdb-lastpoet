@@ -1443,6 +1443,7 @@ class Database:
         c.execute("INSERT INTO Sites (name,code) VALUES ('PKR', 'PK')")
         c.execute("INSERT INTO Sites (name,code) VALUES ('iPoker', 'IP')")
         c.execute("INSERT INTO Sites (name,code) VALUES ('Winamax', 'WM')")
+
         #Fill Actions
         c.execute("INSERT INTO Actions (name,code) VALUES ('ante', 'A')")
         c.execute("INSERT INTO Actions (name,code) VALUES ('small blind', 'SB')")
